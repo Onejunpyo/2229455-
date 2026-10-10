@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>기초 인공신경망</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAFBF7;
+    --grid: #DFE9EF;
+    --panel: #FFFFFF;
+    --ink: #1E3A5F;
+    --text: #262B30;
+    --muted: #66717C;
+    --pencil: #C4402F;
+    --line: #CBD7DF;
+    --soft: #EEF3F6;
+    --good: #2E7D4F;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #151A1F; --grid: #1E252C; --panel: #1A2027; --ink: #9CC3EA;
+      --text: #E3E8ED; --muted: #97A3AE; --pencil: #F07A68; --line: #313B45;
+      --soft: #222A32; --good: #6CC793;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #151A1F; --grid: #1E252C; --panel: #1A2027; --ink: #9CC3EA;
+    --text: #E3E8ED; --muted: #97A3AE; --pencil: #F07A68; --line: #313B45;
+    --soft: #222A32; --good: #6CC793;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  body {
+    margin: 0;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 15px; line-height: 1.6; color: var(--text);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { margin-bottom: 24px; max-width: 72ch; }
+  h1 { font-size: 30px; line-height: 1.25; font-weight: 600; color: var(--ink); margin: 0 0 8px; letter-spacing: -0.01em; }
+  header > p { margin: 0; color: var(--muted); }
+  h2 { font-size: 17px; font-weight: 600; margin: 0 0 10px; color: var(--ink); }
+  .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .layout > * { min-width: 0; }
+  section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
+  .stack > * + * { margin-top: 20px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .hint.top { margin: -2px 0 12px; }
+  .warn { color: var(--pencil); font-size: 14px; margin: 8px 0 0; }
+  details summary { cursor: pointer; font-weight: 500; color: var(--ink); }
+  details[open] summary { margin-bottom: 8px; }
+  .intro { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+  .intro-body p { margin: 0 0 10px; }
+  .intro-body ol { margin: 0 0 10px; padding-left: 22px; }
+
+  .table-scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  #dataTable th { position: sticky; top: 0; background: var(--soft); font-weight: 500; font-size: 13px; color: var(--muted); text-align: left; padding: 6px 6px; white-space: nowrap; }
+  #dataTable th.out { color: var(--pencil); }
+  #dataTable td { padding: 3px 3px; border-top: 1px solid var(--line); }
+  #dataTable td.idx { width: 28px; text-align: right; color: var(--muted); font-size: 12px; padding-right: 6px; }
+  #dataTable td.del { width: 30px; }
+  #dataTable td.sep { width: 1px; padding: 0; background: var(--line); }
+  input[type="number"], select, textarea {
+    font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; width: 100%; min-width: 0;
+  }
+  input.bad { border-color: var(--pencil); }
+  textarea { min-height: 96px; resize: vertical; font-size: 14px; }
+  button {
+    font: inherit; font-size: 14px; cursor: pointer; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 6px 12px;
+  }
+  button:hover { background: var(--soft); }
+  button.primary { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+  button.primary:hover { opacity: 0.9; }
+  button.icon { border: none; background: none; color: var(--muted); padding: 4px 6px; font-size: 16px; line-height: 1; }
+  button.icon:hover { color: var(--pencil); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  :focus-visible { outline: 2px solid var(--pencil); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .presets button { font-size: 13px; padding: 4px 10px; }
+  .presets button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+
+  .field { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; margin-top: 10px; }
+  .field label { font-weight: 500; font-size: 14px; }
+  .field-desc { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
+  .sub { padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+  .sub:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .chart-box { width: 100%; overflow-x: auto; }
+  svg { display: block; width: 100%; height: auto; }
+  svg.min { min-width: 420px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 6px; align-items: center; }
+  .legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 6px; }
+  .legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  .train-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); border-top: 1px solid var(--line); margin-top: 14px; }
+  .stat { padding: 10px 12px 4px 0; }
+  .stat .v { font-size: 20px; font-weight: 500; }
+  .stat .k { font-size: 13px; color: var(--muted); }
+  .stat .d { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .status { font-size: 14px; margin: 10px 0 0; }
+  .status strong { color: var(--good); }
+  progress { width: 100%; height: 8px; accent-color: var(--ink); margin-top: 10px; }
+
+  .res-scroll { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+  #results th { text-align: left; font-weight: 500; color: var(--muted); font-size: 13px; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; background: var(--panel); }
+  #results td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  #results .ok { color: var(--good); font-weight: 500; }
+  #results .ng { color: var(--pencil); font-weight: 500; }
+  .num { text-align: right; }
+
+  .predict-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .predict-grid label { font-size: 13px; color: var(--muted); display: block; }
+  .pred-out { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 18px; }
+  .pred-out div { font-size: 14px; color: var(--muted); }
+  .pred-out output { display: block; font-size: 22px; color: var(--pencil); font-weight: 500; }
+  footer { margin-top: 32px; font-size: 13px; color: var(--muted); max-width: 76ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>기초 인공신경망</h1>
+    <p>입력(문제)과 출력(정답)을 알려 주면, 인공신경망이 스스로 규칙을 찾아 배웁니다. 학습하는 모습을 그래프와 그림으로 직접 확인할 수 있습니다.</p>
+    <details class="intro">
+      <summary>처음 사용하는 분을 위한 설명</summary>
+      <div class="intro-body">
+        <p><strong>인공신경망</strong>은 사람 뇌의 신경세포(뉴런)를 흉내 낸 계산 방법입니다. 사람이 규칙을 직접 알려 주지 않아도, <strong>문제와 정답을 여러 개 보여 주면</strong> 스스로 규칙을 찾아냅니다.</p>
+        <p><strong>뉴런 하나가 하는 일</strong>은 간단합니다. 들어온 값마다 <strong>중요도(가중치)</strong>를 곱해서 모두 더하고, 그 결과를 <strong>활성화 함수</strong>에 통과시켜 다음 뉴런에게 넘깁니다.</p>
+        <p><strong>학습</strong>은 다음 과정을 수천 번 반복하는 것입니다.</p>
+        <ol>
+          <li>지금 가중치로 답을 예측합니다.</li>
+          <li>예측과 정답이 얼마나 다른지(오차) 계산합니다.</li>
+          <li>오차가 줄어드는 방향으로 가중치를 조금씩 고칩니다. (역전파)</li>
+        </ol>
+        <p class="hint">사용 순서: ① 데이터 입력 → ② 신경망 구조 정하기 → ③ 학습 시작 → ④ 결과 확인 및 새로운 값 넣어 보기</p>
+      </div>
+    </details>
+  </header>
+
+  <div class="layout">
+    <!-- 왼쪽: 설정 -->
+    <div class="stack">
+      <section class="panel">
+        <h2>① 데이터 입력</h2>
+        <p class="hint top">입력은 <strong>문제</strong>, 출력은 <strong>정답</strong>입니다. 한 줄이 문제 하나입니다.</p>
+        <div class="field" style="margin-top:0">
+          <label for="nIn">입력 개수</label>
+          <select id="nIn"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div class="field">
+          <label for="nOut">출력 개수</label>
+          <select id="nOut"><option selected>1</option><option>2</option><option>3</option></select>
+        </div>
+        <p class="hint" style="margin-top:14px">예시 데이터 불러오기</p>
+        <div class="row presets" id="presets" style="margin-top:6px"></div>
+        <p class="hint" id="presetDesc"></p>
+        <div class="table-scroll" style="margin-top:12px">
+          <table id="dataTable"><thead></thead><tbody></tbody></table>
+        </div>
+        <div class="row">
+          <button class="primary" id="addRow">행 추가</button>
+          <button id="clearAll">모두 지우기</button>
+        </div>
+        <p class="hint" id="countHint"></p>
+        <details style="margin-top:12px">
+          <summary>여러 값 한 번에 붙여넣기</summary>
+          <textarea id="bulk" aria-label="데이터 붙여넣기"></textarea>
+          <p class="hint" id="bulkHint"></p>
+          <div class="row"><button class="primary" id="applyBulk">표에 적용</button></div>
+        </details>
+      </section>
+
+      <section class="panel">
+        <h2>② 신경망 구조</h2>
+        <div class="sub">
+          <div class="field" style="margin-top:0">
+            <label for="layers">은닉층 개수</label>
+            <select id="layers"><option>0</option><option selected>1</option><option>2</option><option>3</option></select>
+          </div>
+          <p class="field-desc">입력과 출력 사이에서 생각을 담당하는 층입니다. 0개이면 직선 같은 단순한 규칙만 배울 수 있습니다.</p>
+        </div>
+        <div class="sub">
+          <div class="field">
+            <label for="neurons">층마다 뉴런 수</label>
+            <select id="neurons"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option><option>10</option></select>
+          </div>
+          <p class="field-desc">뉴런이 많을수록 복잡한 규칙을 배울 수 있지만, 학습이 느려질 수 있습니다.</p>
+        </div>
+        <div class="sub">
+          <div class="field">
+            <label for="act">활성화 함수</label>
+            <select id="act">
+              <option value="sigmoid">시그모이드</option>
+              <option value="tanh" selected>tanh</option>
+              <option value="relu">ReLU</option>
+            </select>
+          </div>
+          <p class="field-desc" id="actDesc"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>③ 학습 설정</h2>
+        <div class="sub">
+          <div class="field" style="margin-top:0">
+            <label for="lr">학습률</label>
+            <select id="lr"><option>0.01</option><option>0.05</option><option>0.1</option><option>0.3</option><option selected>0.5</option><option>1</option><option>2</option></select>
+          </div>
+          <p class="field-desc">한 번에 가중치를 얼마나 크게 고칠지 정합니다. 너무 크면 오차가 들쭉날쭉하고, 너무 작으면 학습이 느립니다. 0과 1을 맞히는 문제는 0.5, 숫자를 맞히는 문제는 0.1 정도가 알맞습니다.</p>
+        </div>
+        <div class="sub">
+          <div class="field">
+            <label for="epochs">반복 횟수</label>
+            <select id="epochs"><option>500</option><option>1000</option><option>3000</option><option selected>5000</option><option>10000</option><option>20000</option></select>
+          </div>
+          <p class="field-desc">데이터 전체를 몇 번 반복해서 공부할지 정합니다. 한 번 반복하는 것을 <strong>에포크(epoch)</strong>라고 합니다.</p>
+        </div>
+        <div class="sub">
+          <div class="field">
+            <label for="speed">화면 속도</label>
+            <select id="speed"><option value="1">아주 느리게</option><option value="5">느리게</option><option value="25" selected>보통</option><option value="100">빠르게</option><option value="500">아주 빠르게</option></select>
+          </div>
+          <p class="field-desc">학습 결과에는 영향이 없고, 학습 과정을 화면에 보여 주는 속도만 바뀝니다.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- 오른쪽: 결과 -->
+    <div class="stack">
+      <section class="panel">
+        <h2>신경망 모양</h2>
+        <p class="hint top">동그라미는 뉴런, 선은 뉴런 사이의 연결(가중치)입니다. 학습하는 동안 선의 색과 굵기가 바뀌는 모습을 볼 수 있습니다.</p>
+        <div class="chart-box" id="diagram"></div>
+        <div class="legend">
+          <span><i style="border-color: var(--ink)"></i>양수 가중치 (값을 키움)</span>
+          <span><i style="border-color: var(--pencil)"></i>음수 가중치 (값을 줄임)</span>
+          <span>선이 굵을수록 영향이 큽니다</span>
+        </div>
+        <p class="hint" id="paramCount"></p>
+      </section>
+
+      <section class="panel">
+        <h2>④ 학습하기</h2>
+        <div class="train-bar">
+          <button class="primary" id="trainBtn">학습 시작</button>
+          <button id="stepBtn">1번만 학습</button>
+          <button id="resetBtn">처음부터 다시</button>
+        </div>
+        <progress id="progress" max="1" value="0"></progress>
+        <div class="stats">
+          <div class="stat"><div class="v" id="sEpoch">0</div><div class="k">반복 횟수 (에포크)</div><div class="d">데이터 전체를 공부한 횟수입니다.</div></div>
+          <div class="stat"><div class="v" id="sLoss">–</div><div class="k">현재 오차</div><div class="d">예측이 정답과 다른 정도입니다. 0에 가까울수록 좋습니다.</div></div>
+          <div class="stat"><div class="v" id="sAcc">–</div><div class="k">맞힌 개수</div><div class="d" id="sAccDesc">예측이 정답과 충분히 가까운 문제 수입니다.</div></div>
+        </div>
+        <p class="status" id="status"></p>
+        <p class="warn" id="warn" hidden></p>
+        <h2 style="margin-top:18px">오차 그래프</h2>
+        <p class="hint top">학습이 잘 되면 선이 오른쪽으로 갈수록 아래로 내려갑니다.</p>
+        <div class="chart-box" id="lossChart"></div>
+      </section>
+
+      <section class="panel" id="fitPanel">
+        <h2>신경망이 배운 모양</h2>
+        <p class="hint top">파란 점은 입력한 데이터, 빨간 선은 신경망이 예측한 값입니다. 학습이 진행될수록 선이 점들을 따라갑니다.</p>
+        <div class="chart-box" id="fitChart"></div>
+      </section>
+
+      <section class="panel">
+        <h2>학습 결과</h2>
+        <p class="hint top">각 문제에 대해 정답과 신경망의 예측을 비교합니다.</p>
+        <div class="res-scroll">
+          <table id="results"><thead></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>⑤ 새로운 값 넣어 보기</h2>
+        <p class="hint top">학습에 쓰지 않은 새로운 입력을 넣으면, 신경망이 배운 규칙으로 출력을 예측합니다.</p>
+        <div class="predict-grid" id="predictInputs"></div>
+        <div class="pred-out" id="predictOutputs"></div>
+        <p class="warn" id="predictWarn" hidden></p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    신경망이 숫자의 크기에 휘둘리지 않도록, 계산할 때는 입력값을 −1~1, 출력값을 0~1 범위로 바꿔서 학습합니다. 이를 <strong>정규화</strong>라고 하며, 화면에는 다시 원래 크기로 되돌려 보여 줍니다. 출력층은 정답이 0과 1뿐인 문제(AND, XOR 등)에서는 시그모이드 함수를, 일반 숫자를 맞히는 문제에서는 계산한 값을 그대로 내보내는 방식을 사용합니다.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = s => document.querySelector(s);
+
+  /* ---------- 예시 데이터 ---------- */
+  const PRESETS = {
+    and: { label: "AND", nIn: 2, nOut: 1, rows: [[0,0,0],[0,1,0],[1,0,0],[1,1,1]], lr: "0.5",
+      desc: "두 입력이 모두 1일 때만 1이 됩니다. 은닉층이 없어도 배울 수 있는 쉬운 문제입니다." },
+    or: { label: "OR", nIn: 2, nOut: 1, rows: [[0,0,0],[0,1,1],[1,0,1],[1,1,1]], lr: "0.5",
+      desc: "입력 중 하나라도 1이면 1이 됩니다. 은닉층이 없어도 배울 수 있습니다." },
+    xor: { label: "XOR", nIn: 2, nOut: 1, rows: [[0,0,0],[0,1,1],[1,0,1],[1,1,0]], lr: "0.5",
+      desc: "두 입력이 서로 다를 때만 1이 됩니다. 직선 하나로 나눌 수 없어서 은닉층이 꼭 필요합니다. 은닉층을 0개로 바꿔서 학습해 보세요." },
+    temp: { label: "섭씨 → 화씨", nIn: 1, nOut: 1, rows: [[0,32],[10,50],[20,68],[30,86],[40,104]], lr: "0.1",
+      desc: "섭씨 온도를 화씨 온도로 바꾸는 규칙(화씨 = 섭씨 × 1.8 + 32)을 배웁니다." },
+    curve: { label: "곡선 (y = x²)", nIn: 1, nOut: 1,
+      rows: [[-2,4],[-1.5,2.25],[-1,1],[-0.5,0.25],[0,0],[0.5,0.25],[1,1],[1.5,2.25],[2,4]], lr: "0.1",
+      desc: "포물선 모양의 규칙을 배웁니다. 은닉층이 있어야 휘어진 모양을 따라갈 수 있습니다." }
+  };
+
+  /* ---------- 상태 ---------- */
+  let nIn = 2, nOut = 1;
+  let rows = PRESETS.xor.rows.map(r => r.map(String));
+  let presetKey = "xor";
+
+  // 신경망
+  let W = [], B = [], sizes = [];
+  let scaler = null;           // 정규화 정보
+  let data = null;             // 정규화된 학습 데이터
+  let epoch = 0, history = [], running = false, lastLoss = NaN;
+
+  /* ---------- 활성화 함수 ---------- */
+  const ACT = {
+    sigmoid: { f: z => 1 / (1 + Math.exp(-z)), d: a => a * (1 - a),
+      desc: "값을 0~1 사이로 부드럽게 바꿉니다. 가장 오래된 기본 활성화 함수입니다." },
+    tanh: { f: z => Math.tanh(z), d: a => 1 - a * a,
+      desc: "값을 −1~1 사이로 부드럽게 바꿉니다. 시그모이드보다 학습이 빠른 편입니다." },
+    relu: { f: z => (z > 0 ? z : 0.01 * z), d: a => (a > 0 ? 1 : 0.01),
+      desc: "0보다 작으면 거의 0으로, 크면 그대로 통과시킵니다. 요즘 가장 많이 쓰는 활성화 함수입니다." }
+  };
+  const sigmoid = ACT.sigmoid;
+  // 출력층: 정답이 0 또는 1뿐이면 시그모이드, 일반 숫자이면 그대로 내보내기
+  const IDENTITY = { f: z => z, d: () => 1 };
+  let binaryOut = true;
+  const outAct = () => (binaryOut ? sigmoid : IDENTITY);
+
+  /* ---------- 표기 ---------- */
+  function fmt(v, p = 4) {
+    if (!isFinite(v)) return "–";
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e6 || a < 1e-4) return v.toExponential(2);
+    return String(parseFloat(v.toPrecision(p)));
+  }
+
+  /* ---------- 데이터 ---------- */
+  function getData() {
+    const X = [], Y = [];
+    rows.forEach(r => {
+      const nums = r.map(parseFloat);
+      if (nums.every(isFinite)) { X.push(nums.slice(0, nIn)); Y.push(nums.slice(nIn)); }
+    });
+    return { X, Y };
+  }
+
+  function makeScaler(X, Y) {
+    const col = (M, j) => M.map(r => r[j]);
+    const mm = (arr) => ({ min: Math.min(...arr), max: Math.max(...arr) });
+    return {
+      inp: Array.from({ length: nIn }, (_, j) => mm(col(X, j))),
+      out: Array.from({ length: nOut }, (_, j) => mm(col(Y, j)))
+    };
+  }
+  // 입력: 원래 값 → −1~1
+  const normIn = x => x.map((v, j) => {
+    const { min, max } = scaler.inp[j];
+    return max > min ? 2 * (v - min) / (max - min) - 1 : 0;
+  });
+  // 출력: 원래 값 → 0~1
+  const normOut = y => y.map((v, j) => {
+    const { min, max } = scaler.out[j];
+    return max > min ? (v - min) / (max - min) : 0.5;
+  });
+  // 출력: 0~1 → 원래 값
+  const denormOut = y => y.map((v, j) => {
+    const { min, max } = scaler.out[j];
+    return max > min ? min + v * (max - min) : min;
+  });
+
+  /* ---------- 신경망 ---------- */
+  const hiddenAct = () => ACT[$("#act").value];
+
+  function buildNetwork() {
+    const layers = parseInt($("#layers").value, 10);
+    const neurons = parseInt($("#neurons").value, 10);
+    sizes = [nIn, ...Array(layers).fill(neurons), nOut];
+    W = []; B = [];
+    for (let l = 0; l < sizes.length - 1; l++) {
+      const fanIn = sizes[l], fanOut = sizes[l + 1];
+      const limit = Math.sqrt(6 / (fanIn + fanOut));   // 처음 가중치는 작은 무작위 값
+      W.push(Array.from({ length: fanOut }, () =>
+        Array.from({ length: fanIn }, () => (Math.random() * 2 - 1) * limit)));
+      B.push(new Array(fanOut).fill(0));
+    }
+  }
+
+  // 앞으로 계산하기: 입력 → 은닉층 → 출력
+  function forward(x) {
+    const A = [x];
+    const act = hiddenAct();
+    for (let l = 0; l < W.length; l++) {
+      const isLast = l === W.length - 1;
+      const f = isLast ? outAct().f : act.f;
+      const prev = A[l];
+      A.push(W[l].map((w, j) => {
+        let z = B[l][j];
+        for (let i = 0; i < prev.length; i++) z += w[i] * prev[i];   // 가중치 × 입력을 모두 더함
+        return f(z);
+      }));
+    }
+    return A;
+  }
+
+  // 문제 하나로 가중치 고치기 (역전파)
+  function trainSample(x, t, lr) {
+    const A = forward(x);
+    const L = W.length;
+    const act = hiddenAct();
+    const out = A[L];
+    let err = 0;
+    // 출력층의 오차 신호
+    let delta = out.map((a, j) => { err += (a - t[j]) ** 2; return (a - t[j]) * outAct().d(a); });
+    for (let l = L - 1; l >= 0; l--) {
+      const prev = A[l];
+      // 한 층 앞으로 오차 신호를 전달
+      let prevDelta = null;
+      if (l > 0) {
+        prevDelta = prev.map((a, i) => {
+          let s = 0;
+          for (let j = 0; j < delta.length; j++) s += W[l][j][i] * delta[j];
+          return s * act.d(a);
+        });
+      }
+      // 가중치를 오차가 줄어드는 방향으로 조금 고침
+      for (let j = 0; j < delta.length; j++) {
+        for (let i = 0; i < prev.length; i++) W[l][j][i] -= lr * delta[j] * prev[i];
+        B[l][j] -= lr * delta[j];
+      }
+      delta = prevDelta;
+    }
+    return err / t.length;
+  }
+
+  // 데이터 전체를 한 번 공부하기 (1 에포크)
+  function trainEpoch() {
+    const lr = parseFloat($("#lr").value);
+    const order = data.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {          // 순서를 섞어서 공부
+      const k = Math.floor(Math.random() * (i + 1));
+      [order[i], order[k]] = [order[k], order[i]];
+    }
+    order.forEach(i => trainSample(data[i].x, data[i].t, lr));
+    return currentLoss();
+  }
+
+  function currentLoss() {
+    let s = 0;
+    data.forEach(d => {
+      const o = forward(d.x)[W.length];
+      o.forEach((v, j) => { s += (v - d.t[j]) ** 2; });
+    });
+    return s / (data.length * nOut);
+  }
+
+  function predict(xRaw) {
+    return denormOut(forward(normIn(xRaw))[W.length]);
+  }
+
+  /* ---------- 처음부터 다시 ---------- */
+  function resetNetwork() {
+    stop();
+    const { X, Y } = getData();
+    const warn = $("#warn");
+    if (X.length < 1) {
+      data = null; scaler = null;
+      warn.textContent = "학습하려면 입력과 출력이 모두 채워진 줄이 1개 이상 있어야 합니다.";
+      warn.hidden = false;
+    } else {
+      warn.hidden = true;
+      binaryOut = Y.every(r => r.every(v => v === 0 || v === 1));
+      scaler = makeScaler(X, Y);
+      data = X.map((x, i) => ({ x: normIn(x), t: normOut(Y[i]), rawX: x, rawY: Y[i] }));
+    }
+    buildNetwork();
+    epoch = 0; history = [];
+    lastLoss = data ? currentLoss() : NaN;
+    $("#status").textContent = data ? "준비되었습니다. ‘학습 시작’을 눌러 주십시오." : "";
+    renderAll();
+  }
+
+  /* ---------- 학습 반복 ---------- */
+  function stop() {
+    running = false;
+    $("#trainBtn").textContent = "학습 시작";
+  }
+
+  function frame() {
+    if (!running) return;
+    const maxE = parseInt($("#epochs").value, 10);
+    const per = parseInt($("#speed").value, 10);
+    for (let k = 0; k < per && epoch < maxE; k++) {
+      lastLoss = trainEpoch();
+      epoch++;
+      history.push(lastLoss);
+    }
+    if (!isFinite(lastLoss) || lastLoss > 1e6) {
+      stop();
+      $("#status").textContent = "";
+      const w = $("#warn");
+      w.textContent = "오차가 너무 커져서 학습이 망가졌습니다. 학습률을 낮추고 ‘처음부터 다시’를 눌러 주십시오.";
+      w.hidden = false;
+      renderAll();
+      return;
+    }
+    if (epoch >= maxE) {
+      stop();
+      $("#status").innerHTML = `<strong>학습이 끝났습니다.</strong> ${epoch}번 반복했고, 최종 오차는 ${fmt(lastLoss)}입니다.`;
+    } else {
+      $("#status").textContent = "학습하는 중입니다…";
+    }
+    renderAll();
+    if (running) requestAnimationFrame(frame);
+  }
+
+  /* ---------- 그리기 도구 ---------- */
+  function niceTicks(a, b, n) {
+    const span = b - a;
+    if (!(span > 0)) return [a];
+    let step = Math.pow(10, Math.floor(Math.log10(span / n)));
+    const err = span / n / step;
+    if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+    const dec = Math.max(0, -Math.floor(Math.log10(step)));
+    const out = [];
+    for (let v = Math.ceil(a / step) * step; v <= b + step * 1e-9; v += step) out.push(Number(v.toFixed(dec)));
+    return out;
+  }
+
+  function axes(W_, H_, m, x0, x1, y0, y1, xLabel, yLabel) {
+    const sx = x => m.l + (x - x0) / (x1 - x0) * (W_ - m.l - m.r);
+    const sy = y => H_ - m.b - (y - y0) / (y1 - y0) * (H_ - m.t - m.b);
+    let g = "";
+    niceTicks(x0, x1, 6).forEach(t => {
+      g += `<line x1="${sx(t)}" x2="${sx(t)}" y1="${m.t}" y2="${H_ - m.b}" stroke="var(--grid)"/>`;
+      g += `<text x="${sx(t)}" y="${H_ - m.b + 17}" text-anchor="middle" font-size="12" fill="var(--muted)">${t}</text>`;
+    });
+    niceTicks(y0, y1, 5).forEach(t => {
+      g += `<line x1="${m.l}" x2="${W_ - m.r}" y1="${sy(t)}" y2="${sy(t)}" stroke="var(--grid)"/>`;
+      g += `<text x="${m.l - 8}" y="${sy(t) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${t}</text>`;
+    });
+    g += `<rect x="${m.l}" y="${m.t}" width="${W_ - m.l - m.r}" height="${H_ - m.t - m.b}" fill="none" stroke="var(--line)"/>`;
+    g += `<text x="${(W_ + m.l) / 2}" y="${H_ - 4}" text-anchor="middle" font-size="13" fill="var(--text)">${xLabel}</text>`;
+    g += `<text x="13" y="${(H_ - m.b + m.t) / 2}" text-anchor="middle" font-size="13" fill="var(--text)" transform="rotate(-90 13 ${(H_ - m.b + m.t) / 2})">${yLabel}</text>`;
+    return { g, sx, sy };
+  }
+
+  /* ---------- 신경망 그림 ---------- */
+  function renderDiagram() {
+    const Wd = 640;
+    const maxN = Math.max(...sizes);
+    const H = Math.max(200, maxN * 46 + 50);
+    const top = 20, bottom = 34;
+    const colX = l => 70 + l * ((Wd - 140) / Math.max(1, sizes.length - 1));
+    const nodeY = (l, i) => {
+      const n = sizes[l];
+      const gap = Math.min(52, (H - top - bottom) / Math.max(1, maxN));
+      const total = gap * (n - 1);
+      return top + (H - top - bottom) / 2 - total / 2 + i * gap;
+    };
+    let maxW = 0;
+    W.forEach(m => m.forEach(r => r.forEach(v => { maxW = Math.max(maxW, Math.abs(v)); })));
+    maxW = Math.max(maxW, 1);
+
+    let lines = "";
+    for (let l = 0; l < W.length; l++) {
+      W[l].forEach((row, j) => row.forEach((w, i) => {
+        const s = Math.abs(w) / maxW;
+        lines += `<line x1="${colX(l)}" y1="${nodeY(l, i)}" x2="${colX(l + 1)}" y2="${nodeY(l + 1, j)}"
+          stroke="${w >= 0 ? "var(--ink)" : "var(--pencil)"}" stroke-width="${(0.6 + s * 5).toFixed(2)}"
+          stroke-opacity="${(0.25 + s * 0.65).toFixed(2)}"><title>가중치 ${fmt(w, 3)}</title></line>`;
+      }));
+    }
+    let nodes = "", labels = "";
+    sizes.forEach((n, l) => {
+      const isIn = l === 0, isOut = l === sizes.length - 1;
+      for (let i = 0; i < n; i++) {
+        const fill = isIn ? "var(--soft)" : isOut ? "var(--panel)" : "var(--panel)";
+        const stroke = isOut ? "var(--pencil)" : "var(--ink)";
+        const txt = isIn ? `x${i + 1}` : isOut ? `y${i + 1}` : "";
+        nodes += `<circle cx="${colX(l)}" cy="${nodeY(l, i)}" r="15" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+        if (txt) nodes += `<text x="${colX(l)}" y="${nodeY(l, i) + 4}" text-anchor="middle" font-size="12" fill="var(--text)">${txt}</text>`;
+      }
+      const name = isIn ? "입력층" : isOut ? "출력층" : `은닉층 ${l}`;
+      labels += `<text x="${colX(l)}" y="${H - 10}" text-anchor="middle" font-size="13" fill="var(--muted)">${name}</text>`;
+    });
+    $("#diagram").innerHTML = `<svg viewBox="0 0 ${Wd} ${H}" role="img" aria-label="신경망 구조 그림">${lines}${nodes}${labels}</svg>`;
+
+    let params = 0;
+    W.forEach((m, l) => { params += m.length * m[0].length + B[l].length; });
+    $("#paramCount").textContent = `이 신경망은 가중치와 편향을 합쳐 ${params}개의 숫자를 학습합니다. 출력층은 ${binaryOut ? "정답이 0 또는 1이므로 시그모이드 함수로 0~1 사이 값을 내보냅니다." : "숫자를 맞히는 문제이므로 계산한 값을 그대로 내보냅니다."}`;
+  }
+
+  /* ---------- 오차 그래프 ---------- */
+  function renderLoss() {
+    const box = $("#lossChart");
+    const Wd = 640, H = 220, m = { l: 58, r: 16, t: 12, b: 40 };
+    if (history.length < 2) {
+      box.innerHTML = `<p class="hint" style="padding:30px 0;text-align:center">학습을 시작하면 오차 그래프가 그려집니다.</p>`;
+      return;
+    }
+    const n = history.length;
+    const yMax = Math.max(...history) * 1.05 || 1;
+    const { g, sx, sy } = axes(Wd, H, m, 0, n, 0, yMax, "반복 횟수 (에포크)", "오차");
+    const step = Math.max(1, Math.floor(n / 500));
+    let d = "";
+    for (let i = 0; i < n; i += step) d += (i ? "L" : "M") + sx(i + 1).toFixed(1) + " " + sy(history[i]).toFixed(1);
+    d += "L" + sx(n).toFixed(1) + " " + sy(history[n - 1]).toFixed(1);
+    box.innerHTML = `<svg class="min" viewBox="0 0 ${Wd} ${H}" role="img" aria-label="오차 그래프">${g}
+      <path d="${d}" fill="none" stroke="var(--pencil)" stroke-width="2.2"/></svg>`;
+  }
+
+  /* ---------- 입력 1개, 출력 1개일 때 곡선 그래프 ---------- */
+  function renderFit() {
+    const panel = $("#fitPanel");
+    if (nIn !== 1 || nOut !== 1 || !data) { panel.hidden = true; return; }
+    panel.hidden = false;
+    const xs = data.map(d => d.rawX[0]), ys = data.map(d => d.rawY[0]);
+    let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (x0 === x1) { x0 -= 1; x1 += 1; }
+    if (y0 === y1) { y0 -= 1; y1 += 1; }
+    const px = (x1 - x0) * 0.08, py = (y1 - y0) * 0.12;
+    x0 -= px; x1 += px; y0 -= py; y1 += py;
+    const Wd = 640, H = 300, m = { l: 58, r: 16, t: 12, b: 40 };
+    const { g, sx, sy } = axes(Wd, H, m, x0, x1, y0, y1, "입력 x1", "출력 y1");
+    let d = "";
+    for (let i = 0; i <= 200; i++) {
+      const x = x0 + (x1 - x0) * i / 200;
+      d += (i ? "L" : "M") + sx(x).toFixed(1) + " " + sy(predict([x])[0]).toFixed(1);
+    }
+    const pts = xs.map((x, i) => `<circle cx="${sx(x)}" cy="${sy(ys[i])}" r="5" fill="var(--ink)" stroke="var(--panel)" stroke-width="1.5"><title>(${x}, ${ys[i]})</title></circle>`).join("");
+    $("#fitChart").innerHTML = `<svg class="min" viewBox="0 0 ${Wd} ${H}" role="img" aria-label="데이터와 신경망 예측 곡선">
+      <defs><clipPath id="fitclip"><rect x="${m.l}" y="${m.t}" width="${Wd - m.l - m.r}" height="${H - m.t - m.b}"/></clipPath></defs>
+      ${g}<g clip-path="url(#fitclip)"><path d="${d}" fill="none" stroke="var(--pencil)" stroke-width="2.5"/></g>${pts}</svg>`;
+  }
+
+  /* ---------- 결과 표와 통계 ---------- */
+  function isBinary() {
+    return data && data.every(d => d.rawY.every(v => v === 0 || v === 1));
+  }
+
+  function renderResults() {
+    const thead = $("#results thead"), tbody = $("#results tbody");
+    if (!data) { thead.innerHTML = ""; tbody.innerHTML = ""; return; }
+    const bin = isBinary();
+    let h = "<tr>";
+    for (let j = 0; j < nIn; j++) h += `<th>입력 x${j + 1}</th>`;
+    for (let j = 0; j < nOut; j++) h += `<th class="num">정답 y${j + 1}</th><th class="num">예측</th>`;
+    h += `<th>${bin ? "판정" : "결과"}</th></tr>`;
+    thead.innerHTML = h;
+
+    let correct = 0;
+    tbody.innerHTML = data.map(d => {
+      const p = predict(d.rawX);
+      let ok = true, cells = "";
+      p.forEach((v, j) => {
+        const t = d.rawY[j];
+        const { min, max } = scaler.out[j];
+        const range = max > min ? max - min : 1;
+        const good = bin ? (v >= 0.5 ? 1 : 0) === t : Math.abs(v - t) <= range * 0.05;
+        if (!good) ok = false;
+        cells += `<td class="num">${fmt(t)}</td><td class="num">${fmt(v)}${bin ? ` → ${v >= 0.5 ? 1 : 0}` : ""}</td>`;
+      });
+      if (ok) correct++;
+      return `<tr>${d.rawX.map(v => `<td>${fmt(v)}</td>`).join("")}${cells}<td class="${ok ? "ok" : "ng"}">${ok ? "✓ 맞음" : "✗ 아직"}</td></tr>`;
+    }).join("");
+
+    $("#sAcc").textContent = `${correct} / ${data.length}`;
+    $("#sAccDesc").textContent = bin
+      ? "예측을 0.5 기준으로 0 또는 1로 판정했을 때 정답과 같은 문제 수입니다."
+      : "예측이 정답과 5% 이내로 가까운 문제 수입니다.";
+  }
+
+  function renderStats() {
+    $("#sEpoch").textContent = epoch.toLocaleString("ko-KR");
+    $("#sLoss").textContent = fmt(lastLoss);
+    const maxE = parseInt($("#epochs").value, 10);
+    $("#progress").max = maxE;
+    $("#progress").value = Math.min(epoch, maxE);
+  }
+
+  /* ---------- 새로운 값 예측 ---------- */
+  function renderPredictInputs() {
+    const box = $("#predictInputs");
+    box.innerHTML = "";
+    for (let j = 0; j < nIn; j++) {
+      const wrap = document.createElement("div");
+      const first = getData().X[0];
+      wrap.innerHTML = `<label for="pin${j}">입력 x${j + 1}</label>
+        <input type="number" step="any" inputmode="decimal" id="pin${j}" value="${first ? first[j] : 0}">`;
+      wrap.querySelector("input").addEventListener("input", renderPredict);
+      box.appendChild(wrap);
+    }
+  }
+
+  function renderPredict() {
+    const out = $("#predictOutputs"), warn = $("#predictWarn");
+    if (!data) { out.innerHTML = ""; warn.hidden = true; return; }
+    const x = Array.from({ length: nIn }, (_, j) => parseFloat($("#pin" + j).value));
+    if (!x.every(isFinite)) { out.innerHTML = `<div>입력값을 모두 채워 주십시오.</div>`; warn.hidden = true; return; }
+    const p = predict(x);
+    out.innerHTML = p.map((v, j) => `<div>출력 y${j + 1}<output>${fmt(v)}</output></div>`).join("");
+    const outside = x.some((v, j) => v < scaler.inp[j].min || v > scaler.inp[j].max);
+    warn.hidden = !outside;
+    if (outside) warn.textContent = "학습한 데이터의 범위를 벗어난 입력입니다. 신경망은 배운 범위 밖에서는 예측이 크게 틀릴 수 있습니다.";
+  }
+
+  function renderAll() {
+    renderDiagram();
+    renderLoss();
+    renderFit();
+    renderResults();
+    renderStats();
+    renderPredict();
+  }
+
+  /* ---------- 데이터 표 ---------- */
+  function renderTable() {
+    let h = `<tr><th></th>`;
+    for (let j = 0; j < nIn; j++) h += `<th>입력 x${j + 1}</th>`;
+    h += `<th class="sep"></th>`;
+    for (let j = 0; j < nOut; j++) h += `<th class="out">출력 y${j + 1}</th>`;
+    h += `<th></th></tr>`;
+    $("#dataTable thead").innerHTML = h;
+
+    const tb = $("#dataTable tbody");
+    tb.innerHTML = "";
+    rows.forEach((r, i) => {
+      const tr = document.createElement("tr");
+      let cells = `<td class="idx">${i + 1}</td>`;
+      r.forEach((v, j) => {
+        if (j === nIn) cells += `<td class="sep"></td>`;
+        cells += `<td><input type="number" step="any" inputmode="decimal" aria-label="${i + 1}번째 줄 ${j < nIn ? "입력 x" + (j + 1) : "출력 y" + (j - nIn + 1)}" value="${v}"></td>`;
+      });
+      cells += `<td class="del"><button class="icon" aria-label="${i + 1}번째 줄 삭제" title="줄 삭제">×</button></td>`;
+      tr.innerHTML = cells;
+      tr.querySelectorAll("input").forEach((inp, j) => {
+        inp.addEventListener("input", () => {
+          rows[i][j] = inp.value;
+          inp.classList.toggle("bad", inp.value.trim() !== "" && !isFinite(parseFloat(inp.value)));
+          dataChanged();
+        });
+        inp.addEventListener("keydown", e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (i === rows.length - 1) addRow();
+            else tb.children[i + 1].querySelectorAll("input")[j].focus();
+          }
+        });
+      });
+      tr.querySelector("button").addEventListener("click", () => { rows.splice(i, 1); renderTable(); dataChanged(); });
+      tb.appendChild(tr);
+    });
+    const { X } = getData();
+    $("#countHint").textContent = `학습에 쓸 문제: ${X.length}개 (모든 칸이 채워진 줄만 사용합니다)`;
+    $("#bulk").placeholder = nIn === 2 && nOut === 1 ? "한 줄에 입력, 출력 순서로\n0, 0, 0\n0, 1, 1\n1, 0, 1" : `한 줄에 입력 ${nIn}개, 출력 ${nOut}개 순서로`;
+    $("#bulkHint").textContent = `한 줄에 숫자 ${nIn + nOut}개(입력 ${nIn}개 → 출력 ${nOut}개 순서)를 쉼표, 띄어쓰기, 탭으로 구분해 적습니다.`;
+  }
+
+  function addRow() {
+    rows.push(new Array(nIn + nOut).fill(""));
+    renderTable();
+    const last = $("#dataTable tbody").lastElementChild;
+    if (last) last.querySelector("input").focus();
+  }
+
+  let changeTimer = null;
+  function dataChanged() {
+    const { X } = getData();
+    $("#countHint").textContent = `학습에 쓸 문제: ${X.length}개 (모든 칸이 채워진 줄만 사용합니다)`;
+    clearTimeout(changeTimer);
+    changeTimer = setTimeout(() => { renderPredictInputs(); resetNetwork(); }, 250);
+  }
+
+  function setShape(newIn, newOut) {
+    rows = rows.map(r => {
+      const ins = r.slice(0, nIn), outs = r.slice(nIn);
+      while (ins.length < newIn) ins.push(""); ins.length = newIn;
+      while (outs.length < newOut) outs.push(""); outs.length = newOut;
+      return ins.concat(outs);
+    });
+    nIn = newIn; nOut = newOut;
+    $("#nIn").value = String(nIn); $("#nOut").value = String(nOut);
+    renderTable(); renderPredictInputs(); resetNetwork();
+  }
+
+  function loadPreset(key) {
+    const p = PRESETS[key];
+    presetKey = key;
+    nIn = p.nIn; nOut = p.nOut;
+    $("#nIn").value = String(nIn); $("#nOut").value = String(nOut);
+    rows = p.rows.map(r => r.map(String));
+    $("#lr").value = p.lr;
+    $("#presetDesc").textContent = p.desc;
+    document.querySelectorAll("#presets button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.key === key)));
+    renderTable(); renderPredictInputs(); resetNetwork();
+  }
+
+  /* ---------- 이벤트 연결 ---------- */
+  Object.entries(PRESETS).forEach(([k, p]) => {
+    const b = document.createElement("button");
+    b.textContent = p.label; b.dataset.key = k;
+    b.addEventListener("click", () => loadPreset(k));
+    $("#presets").appendChild(b);
+  });
+
+  $("#nIn").addEventListener("change", e => setShape(parseInt(e.target.value, 10), nOut));
+  $("#nOut").addEventListener("change", e => setShape(nIn, parseInt(e.target.value, 10)));
+  $("#addRow").addEventListener("click", addRow);
+  $("#clearAll").addEventListener("click", () => { rows = [new Array(nIn + nOut).fill("")]; $("#presetDesc").textContent = ""; renderTable(); renderPredictInputs(); resetNetwork(); });
+  $("#applyBulk").addEventListener("click", () => {
+    const need = nIn + nOut;
+    const parsed = $("#bulk").value.split(/\r?\n/)
+      .map(line => line.trim().split(/[\s,;]+/))
+      .filter(p => p.length >= need && p.slice(0, need).every(v => isFinite(parseFloat(v))))
+      .map(p => p.slice(0, need));
+    if (!parsed.length) { alert(`읽을 수 있는 줄이 없습니다. 한 줄에 숫자 ${need}개씩 입력해 주십시오.`); return; }
+    rows = parsed; $("#presetDesc").textContent = "";
+    renderTable(); renderPredictInputs(); resetNetwork();
+  });
+
+  ["#layers", "#neurons", "#act"].forEach(id => $(id).addEventListener("change", () => {
+    $("#actDesc").textContent = ACT[$("#act").value].desc;
+    resetNetwork();
+  }));
+  $("#epochs").addEventListener("change", renderStats);
+
+  $("#trainBtn").addEventListener("click", () => {
+    if (!data) return;
+    if (running) { stop(); $("#status").textContent = "잠시 멈췄습니다. ‘학습 계속’을 누르면 이어서 학습합니다."; $("#trainBtn").textContent = "학습 계속"; return; }
+    const maxE = parseInt($("#epochs").value, 10);
+    if (epoch >= maxE) { resetNetwork(); }
+    running = true;
+    $("#trainBtn").textContent = "멈춤";
+    requestAnimationFrame(frame);
+  });
+  $("#stepBtn").addEventListener("click", () => {
+    if (!data) return;
+    stop();
+    lastLoss = trainEpoch(); epoch++; history.push(lastLoss);
+    $("#status").textContent = "데이터 전체를 1번 공부했습니다. 가중치(선의 굵기와 색)가 조금 바뀐 것을 확인해 보십시오.";
+    renderAll();
+  });
+  $("#resetBtn").addEventListener("click", resetNetwork);
+
+  /* ---------- 시작 ---------- */
+  $("#actDesc").textContent = ACT[$("#act").value].desc;
+  loadPreset("xor");
+})();
+</script>
+</body>
+</html>
